@@ -48,20 +48,43 @@ client.on_connect = on_connect
 def main():
     client.connect(MQTT_HOST, MQTT_PORT, 60)
     client.loop_start()
+    
     rep_count = 0
     is_peak = False
     rotation_speeds = []
+    
+    # Variabel untuk Kalibrasi
+    buffer_magnitude = []
+    dynamic_threshold = 10.0
+    
     print("Mulai membaca sensor. Lakukan Push-up/Squat...")
+    
     try:
         while True:
             (ax, ay, az), (gx, gy, gz) = get_sensor_data()
             magnitude = math.sqrt(ax**2 + ay**2 + az**2)
-            if magnitude > THRESHOLD_ACCEL and not is_peak:
+            
+            # 1. KALIBRASI OTOMATIS (Ambil data awal saat HP diam)
+            if len(buffer_magnitude) < 20:
+                buffer_magnitude.append(magnitude)
+                if len(buffer_magnitude) == 20:
+                    rata_diam = sum(buffer_magnitude) / 20
+                    dynamic_threshold = rata_diam + 2.0 # Batas gerakan = nilai diam + 2
+                    print(f"Kalibrasi selesai. Batas gerak: {dynamic_threshold:.2f}")
+                time.sleep(0.05)
+                continue
+            
+            # 2. DETEKSI GERAKAN (PEAK DETECTION)
+            # Jika gerakan melebihi batas, kita anggap 1 repetisi (gerakan naik)
+            if magnitude > dynamic_threshold and not is_peak:
                 is_peak = True
                 rep_count += 1
-                print(f"Repetisi ke-{rep_count} terdeteksi!")
+                print(f"Repetisi ke-{rep_count} terdeteksi! (Mag: {magnitude:.2f})")
+                
+                # Kalkulasi kelelahan (pakai Gyro kalau ada)
                 rot_speed = math.sqrt(gx**2 + gy**2 + gz**2)
                 rotation_speeds.append(rot_speed)
+                
                 status = "NORMAL"
                 if len(rotation_speeds) >= 5:
                     awal = sum(rotation_speeds[:3]) / 3
@@ -71,11 +94,17 @@ def main():
                         print("⚠️ KELELAHAN TERDETEKSI!")
                         client.publish(TOPIC_ALERT, json.dumps({"status": "WARNING", "message": "Kelelahan! Segera istirahat."}), qos=1)
                 
+                # Kirim Data
                 payload = {"device_id": "edge1", "reps": rep_count, "status": status, "timestamp": time.time()}
                 client.publish(TOPIC_TELEMETRY, json.dumps(payload), qos=1)
-            elif magnitude < THRESHOLD_ACCEL and is_peak:
+            
+            # 3. RESET PUNCAK (Jika gerakan turun di bawah batas)
+            # Dikurangi 1.0 agar tidak bolak-balik hitung saat getaran kecil
+            elif magnitude < (dynamic_threshold - 1.0) and is_peak:
                 is_peak = False 
-            time.sleep(0.1) 
+                
+            time.sleep(0.05) 
+            
     except KeyboardInterrupt:
         print("Program dihentikan.")
         client.loop_stop()
