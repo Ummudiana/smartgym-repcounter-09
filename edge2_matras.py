@@ -14,15 +14,15 @@ def on_connect(client, userdata, flags, rc):
 def on_message(client, userdata, msg):
     print(f"Pesan masuk: {msg.payload.decode()}")
     data = json.loads(msg.payload.decode())
+    
     if data.get("status") == "WARNING":
-        print("🚨 MENERIMA ALERT KELELAHAN! Bergetar...")
-        subprocess.run(["termux-vibrate", "-d", "2000"])
-        subprocess.run(["termux-notification", "--title", "SmartGym", "--content", data.get("message", "")])
-
-client = mqtt.Client()
-client.on_connect = on_connect
-client.on_message = on_message
-
-print("Menghubungkan ke MQTT...")
-client.connect(MQTT_HOST, MQTT_PORT, 60)
-client.loop_forever()
+        print("🚨 MENERIMA ALERT KELELAHAN! Bunyikan alarm...")
+        
+        # 1. Coba Getar (kalau berhasil, bagus)
+        subprocess.run(["termux-vibrate", "-d", "1000"])
+        
+        # 2. Munculkan Notifikasi
+        subprocess.run(["termux-notification", "--title", "🚨 ALARM KELELAHAN!", "--content", data.get("message", "")])
+        
+        # 3. BUNYIKAN SUARA ALARM (Ini yang paling penting!)
+        subprocess.run(["termux-tts-speak", "Peringatan! Anda sudah kelelahan, silakan istirahat!"])
