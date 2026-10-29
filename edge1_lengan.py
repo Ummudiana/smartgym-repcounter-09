@@ -52,6 +52,7 @@ def main():
     rep_count = 0
     is_peak = False
     rotation_speeds = []
+    last_rep_time = time.time()
     
     # Variabel untuk Kalibrasi
     buffer_magnitude = []
@@ -82,16 +83,24 @@ def main():
                 print(f"Repetisi ke-{rep_count} terdeteksi! (Mag: {magnitude:.2f})")
                 
                 # Kalkulasi kelelahan (pakai Gyro kalau ada)
-                rot_speed = math.sqrt(gx**2 + gy**2 + gz**2)
-                rotation_speeds.append(rot_speed)
+                                # Hitung waktu jeda sejak repetisi terakhir
+                current_time = time.time()
+                time_diff = current_time - last_rep_time
+                last_rep_time = current_time
+                
+                # Simpan waktu jeda
+                rotation_speeds.append(time_diff)
                 
                 status = "NORMAL"
+                # Butuh minimal 5 repetisi untuk menilai kelelahan
                 if len(rotation_speeds) >= 5:
                     awal = sum(rotation_speeds[:3]) / 3
                     akhir = sum(rotation_speeds[-3:]) / 3
-                    if awal > 0 and ((awal - akhir) / awal) > FATIGUE_THRESHOLD:
+                    
+                    # Jika jeda melambat lebih dari 50% (artinya makin lambat/lelah)
+                    if awal > 0 and ((akhir - awal) / awal) > 0.50: 
                         status = "FATIGUE"
-                        print("⚠️ KELELAHAN TERDETEKSI!")
+                        print("⚠️ KELELAHAN TERDETEKSI! (Gerakan melambat)")
                         client.publish(TOPIC_ALERT, json.dumps({"status": "WARNING", "message": "Kelelahan! Segera istirahat."}), qos=1)
                 
                 # Kirim Data
