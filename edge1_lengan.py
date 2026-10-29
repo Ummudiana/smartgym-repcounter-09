@@ -10,7 +10,7 @@ MQTT_PORT = 1883
 TOPIC_TELEMETRY = f"{PROJECT_ID}/edge1/telemetry"
 TOPIC_ALERT = f"{PROJECT_ID}/alerts"
 
-THRESHOLD_ACCEL = 12.0  
+THRESHOLD_ACCEL = 7.0  
 FATIGUE_THRESHOLD = 0.30 
 
 def get_sensor_data():
@@ -20,10 +20,21 @@ def get_sensor_data():
             capture_output=True, text=True, timeout=5
         ).stdout
         data = json.loads(output)
-        accel_key = next(k for k in data if "Accelerometer" in k)
-        gyro_key = next(k for k in data if "Gyroscope" in k)
-        ax, ay, az = data[accel_key]["values"][:3]
-        gx, gy, gz = data[gyro_key]["values"][:3]
+        
+        # Cari Accelerometer (Menggunakan LSM6DSVTR)
+        accel_key = next((k for k in data if "Accelerometer" in k), None)
+        if accel_key:
+            ax, ay, az = data[accel_key]["values"][:3]
+        else:
+            ax, ay, az = 0, 0, 0
+
+        # Cari Gyroscope (Jika tidak ada, isi 0 agar tidak error)
+        gyro_key = next((k for k in data if "Gyroscope" in k), None)
+        if gyro_key:
+            gx, gy, gz = data[gyro_key]["values"][:3]
+        else:
+            gx, gy, gz = 0, 0, 0 
+            
         return (ax, ay, az), (gx, gy, gz)
     except Exception as e:
         return (0,0,0), (0,0,0)
