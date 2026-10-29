@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SmartGym Dashboard</title>
+    <!-- Mengambil library Chart.js dari internet untuk membuat grafik -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Sedikit dekorasi agar cantik */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #eef2f5; margin: 0; padding: 20px; }
+        .card { background: white; padding: 30px; margin: 20px auto; width: 70%; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .angka { font-size: 50px; font-weight: bold; color: #007bff; margin: 10px 0; }
+        .status-normal { color: #28a745; font-weight: bold; font-size: 24px; }
+        .status-fatigue { color: #dc3545; font-weight: bold; font-size: 24px; animation: blink 1s infinite; }
+        /* Animasi berkedip untuk status FATIGUE */
+        @keyframes blink { 50% { opacity: 0.3; } }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🏋️ SmartGym RepCounter</h1>
+        <hr>
+        <h2>Total Repetisi:</h2>
+        <div class="angka" id="reps">0</div>
+        <h3>Status Atlet: <span id="status" class="status-normal">WAITING...</span></h3>
+    </div>
+
+    <div class="card">
+        <h3>Grafik Perkembangan Repetisi</h3>
+        <canvas id="myChart"></canvas>
+    </div>
+
+    <script>
+        // Setup awal Grafik
+        const ctx = document.getElementById('myChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [], // Sumbu X (waktu/urutan)
+                datasets: [{
+                    label: 'Jumlah Repetisi',
+                    data: [], // Sumbu Y (angka)
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.2)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4 // Membuat garis melengkung halus
+                }]
+            },
+            options: {
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+
+        // Fungsi untuk mengambil data dari Python setiap 1 detik
+        setInterval(() => {
+            fetch('/data')
+                .then(response => response.json())
+                .then(data => {
+                    // 1. Update angka repetisi
+                    document.getElementById('reps').innerText = data.reps;
+                    
+                    // 2. Update status (Normal / Fatigue)
+                    const statusEl = document.getElementById('status');
+                    statusEl.innerText = data.status;
+                    if (data.status === 'FATIGUE') {
+                        statusEl.className = 'status-fatigue';
+                    } else {
+                        statusEl.className = 'status-normal';
+                    }
+                    
+                    // 3. Update Grafik
+                    chart.data.labels = data.history.map((_, i) => i + 1);
+                    chart.data.datasets[0].data = data.history;
+                    chart.update();
+                })
+                .catch(error => console.log("Menunggu data dari HP..."));
+        }, 1000); // 1000 milidetik = 1 detik
+    </script>
+</body>
+</html>
