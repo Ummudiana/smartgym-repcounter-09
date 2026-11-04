@@ -84,7 +84,7 @@ def main():
             elif magnitude < (dynamic_threshold - 0.5) and is_peak:
                 is_peak = False 
                 
-            time.sleep(0.02) 
+            time.sleep(0.05) 
             
     except KeyboardInterrupt:
         print("Program dihentikan.")
