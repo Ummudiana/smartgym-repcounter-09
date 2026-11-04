@@ -12,23 +12,6 @@ TOPIC_ALERT = f"{PROJECT_ID}/alerts"
 
 THRESHOLD_ACCEL = 9.0  
 
-def get_sensor_data():
-    try:
-        # Kita percepat waktu bacanya
-        output = subprocess.run(
-            ["termux-sensor", "-s", "accelerometer", "-n", "1"],
-            capture_output=True, text=True, timeout=2
-        ).stdout
-        data = json.loads(output)
-        accel_key = next((k for k in data if "Accelerometer" in k), None)
-        if accel_key:
-            ax, ay, az = data[accel_key]["values"][:3]
-        else:
-            ax, ay, az = 0, 0, 0
-        return (ax, ay, az)
-    except:
-        return (0,0,0)
-
 def on_connect(client, userdata, flags, rc):
     print(f"Terhubung ke MQTT. Kode: {rc}")
 
@@ -45,50 +28,68 @@ def main():
     buffer_magnitude = []
     dynamic_threshold = 10.0
     
-    print("HP 1 Siap Mode Cepat. Mengirim data jeda ke Laptop...")
+    print("HP 1 Mode Streaming. Mulai membaca sensor...")
+    
+    # BUKA KERAN SENSOR (STREAMING) - Jauh lebih cepat!
+    process = subprocess.Popen(
+        ["termux-sensor", "-s", "accelerometer", "-n", "100000"],
+        stdout=subprocess.PIPE, text=True
+    )
     
     try:
-        while True:
-            (ax, ay, az) = get_sensor_data()
-            magnitude = math.sqrt(ax**2 + ay**2 + az**2)
+        buffer = ""
+        for line in iter(process.stdout.readline, ''):
+            buffer += line
             
-            # Kalibrasi
-            if len(buffer_magnitude) < 15: # Dikurangi dari 20 ke 15 biar lebih cepat
-                buffer_magnitude.append(magnitude)
-                if len(buffer_magnitude) == 15:
-                    rata_diam = sum(buffer_magnitude) / 15
-                    dynamic_threshold = rata_diam + 1.5 
-                    print(f"Kalibrasi selesai. Batas: {dynamic_threshold:.2f}")
-                    last_rep_time = time.time() 
-                time.sleep(0.01)
-                continue
-            
-            # Deteksi Gerakan
-            if magnitude > dynamic_threshold and not is_peak:
-                is_peak = True
-                rep_count += 1
-                
-                current_time = time.time()
-                time_diff = current_time - last_rep_time
-                last_rep_time = current_time
-                
-                print(f"Rep-{rep_count} | Jeda: {time_diff:.2f}s")
-                
-                payload = {
-                    "device_id": "edge1", 
-                    "reps": rep_count, 
-                    "jeda_waktu": time_diff, 
-                    "timestamp": time.time()
-                }
-                client.publish(TOPIC_TELEMETRY, json.dumps(payload), qos=1)
-            
-            elif magnitude < (dynamic_threshold - 0.5) and is_peak:
-                is_peak = False 
-                
-            time.sleep(0.01) 
-            
+            # Jika data sensor sudah lengkap (ada kurung kurawal tutup)
+            if buffer.strip().endswith('}'):
+                try:
+                    data = json.loads(buffer)
+                    buffer = "" 
+                    
+                    accel_key = next((k for k in data if "Accelerometer" in k), None)
+                    if accel_key:
+                        ax, ay, az = data[accel_key]["values"][:3]
+                        magnitude = math.sqrt(ax**2 + ay**2 + az**2)
+                        
+                        # Kalibrasi
+                        if len(buffer_magnitude) < 15:
+                            buffer_magnitude.append(magnitude)
+                            if len(buffer_magnitude) == 15:
+                                rata_diam = sum(buffer_magnitude) / 15
+                                dynamic_threshold = rata_diam + 1.5 
+                                print(f"Kalibrasi selesai. Batas: {dynamic_threshold:.2f}")
+                                last_rep_time = time.time() 
+                            continue
+                        
+                        # Deteksi Gerakan
+                        if magnitude > dynamic_threshold and not is_peak:
+                            is_peak = True
+                            rep_count += 1
+                            
+                            current_time = time.time()
+                            time_diff = current_time - last_rep_time
+                            last_rep_time = current_time
+                            
+                            print(f"Rep-{rep_count} | Jeda: {time_diff:.2f}s")
+                            
+                            payload = {
+                                "device_id": "edge1", 
+                                "reps": rep_count, 
+                                "jeda_waktu": time_diff, 
+                                "timestamp": time.time()
+                            }
+                            client.publish(TOPIC_TELEMETRY, json.dumps(payload), qos=1)
+                        
+                        elif magnitude < (dynamic_threshold - 0.5) and is_peak:
+                            is_peak = False 
+                            
+                except json.JSONDecodeError:
+                    pass 
+                    
     except KeyboardInterrupt:
         print("Program dihentikan.")
+        process.terminate()
         client.loop_stop()
 
 if __name__ == "__main__":
