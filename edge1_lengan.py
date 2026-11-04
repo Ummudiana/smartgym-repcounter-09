@@ -70,8 +70,15 @@ def main():
                             
                             # Jika HP tersendat dan jeda > 2.5 detik, kita paksa anggap 1.0 detik
                             # (Asumsi: orang gerak cepat jedanya ~1 detik)
-                            if time_diff > 2.5:
-                                time_diff = 1.0 
+                            current_time = time.time()
+                            time_diff = current_time - last_rep_time
+                            
+                            # (Baris paksa tadi sudah dihapus)
+                            
+                            last_rep_time = current_time
+                            
+                            print(f"Rep-{rep_count} | Jeda Akurat: {time_diff:.2f}s")
+                             
                             
                             last_rep_time = current_time
                             
