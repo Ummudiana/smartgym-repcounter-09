@@ -14,9 +14,10 @@ THRESHOLD_ACCEL = 9.0
 
 def get_sensor_data():
     try:
+        # Kita percepat waktu bacanya
         output = subprocess.run(
-            ["termux-sensor", "-s", "accelerometer,gyroscope", "-n", "1"],
-            capture_output=True, text=True, timeout=5
+            ["termux-sensor", "-s", "accelerometer", "-n", "1"],
+            capture_output=True, text=True, timeout=2
         ).stdout
         data = json.loads(output)
         accel_key = next((k for k in data if "Accelerometer" in k), None)
@@ -44,7 +45,7 @@ def main():
     buffer_magnitude = []
     dynamic_threshold = 10.0
     
-    print("HP 1 Siap. Mengirim data jeda ke Laptop...")
+    print("HP 1 Siap Mode Cepat. Mengirim data jeda ke Laptop...")
     
     try:
         while True:
@@ -52,14 +53,14 @@ def main():
             magnitude = math.sqrt(ax**2 + ay**2 + az**2)
             
             # Kalibrasi
-            if len(buffer_magnitude) < 20:
+            if len(buffer_magnitude) < 15: # Dikurangi dari 20 ke 15 biar lebih cepat
                 buffer_magnitude.append(magnitude)
-                if len(buffer_magnitude) == 20:
-                    rata_diam = sum(buffer_magnitude) / 20
+                if len(buffer_magnitude) == 15:
+                    rata_diam = sum(buffer_magnitude) / 15
                     dynamic_threshold = rata_diam + 1.5 
                     print(f"Kalibrasi selesai. Batas: {dynamic_threshold:.2f}")
-                    last_rep_time = time.time() # RESET TIMER setelah kalibrasi
-                time.sleep(0.05)
+                    last_rep_time = time.time() 
+                time.sleep(0.01)
                 continue
             
             # Deteksi Gerakan
@@ -73,7 +74,6 @@ def main():
                 
                 print(f"Rep-{rep_count} | Jeda: {time_diff:.2f}s")
                 
-                # Kirim data ke MQTT (Laptop yang akan memproses AI)
                 payload = {
                     "device_id": "edge1", 
                     "reps": rep_count, 
@@ -85,7 +85,7 @@ def main():
             elif magnitude < (dynamic_threshold - 0.5) and is_peak:
                 is_peak = False 
                 
-            time.sleep(0.05) 
+            time.sleep(0.01) 
             
     except KeyboardInterrupt:
         print("Program dihentikan.")
