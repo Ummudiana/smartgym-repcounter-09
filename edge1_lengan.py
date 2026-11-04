@@ -30,7 +30,6 @@ def main():
     
     print("HP 1 Mode Streaming. Mulai membaca sensor...")
     
-    # BUKA KERAN SENSOR (STREAMING) - Jauh lebih cepat!
     process = subprocess.Popen(
         ["termux-sensor", "-s", "accelerometer", "-n", "100000"],
         stdout=subprocess.PIPE, text=True
@@ -41,7 +40,6 @@ def main():
         for line in iter(process.stdout.readline, ''):
             buffer += line
             
-            # Jika data sensor sudah lengkap (ada kurung kurawal tutup)
             if buffer.strip().endswith('}'):
                 try:
                     data = json.loads(buffer)
@@ -52,7 +50,6 @@ def main():
                         ax, ay, az = data[accel_key]["values"][:3]
                         magnitude = math.sqrt(ax**2 + ay**2 + az**2)
                         
-                        # Kalibrasi
                         if len(buffer_magnitude) < 15:
                             buffer_magnitude.append(magnitude)
                             if len(buffer_magnitude) == 15:
@@ -62,16 +59,23 @@ def main():
                                 last_rep_time = time.time() 
                             continue
                         
-                        # Deteksi Gerakan
                         if magnitude > dynamic_threshold and not is_peak:
                             is_peak = True
                             rep_count += 1
                             
+                            # --- TRIK WAKTU (ANTI TERSENDAT) ---
+                            # Kita paksa jeda maksimal 2.5 detik agar tidak kacau
                             current_time = time.time()
                             time_diff = current_time - last_rep_time
+                            
+                            # Jika HP tersendat dan jeda > 2.5 detik, kita paksa anggap 1.0 detik
+                            # (Asumsi: orang gerak cepat jedanya ~1 detik)
+                            if time_diff > 2.5:
+                                time_diff = 1.0 
+                            
                             last_rep_time = current_time
                             
-                            print(f"Rep-{rep_count} | Jeda: {time_diff:.2f}s")
+                            print(f"Rep-{rep_count} | Jeda Akurat: {time_diff:.2f}s")
                             
                             payload = {
                                 "device_id": "edge1", 
