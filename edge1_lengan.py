@@ -58,6 +58,7 @@ def main():
                     rata_diam = sum(buffer_magnitude) / 20
                     dynamic_threshold = rata_diam + 1.5 
                     print(f"Kalibrasi selesai. Batas: {dynamic_threshold:.2f}")
+                    last_rep_time = time.time() # RESET TIMER setelah kalibrasi
                 time.sleep(0.05)
                 continue
             

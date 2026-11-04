@@ -2,34 +2,21 @@ import pandas as pd
 from sklearn.tree import DecisionTreeClassifier
 import pickle
 
-# 1. DATASET (Data Latih)
-# Jeda waktu dalam detik. 
-# 0.5 - 1.5 detik = Cepat (0 / NORMAL)
-# 2.0 - 5.0 detik = Lambat (1 / FATIGUE)
+# DATA LATIH BARU (Lebih Toleran)
 data = {
-    # Jeda Cepat (Normal): 0.5 sampai 2.5 detik
-    'jeda_waktu': [0.5, 0.8, 1.0, 1.5, 2.0, 2.5, 
-                   
-    # Jeda Lambat (Fatigue): 3.5 sampai 6.0 detik
-                   3.5, 4.0, 4.5, 5.0, 5.5, 6.0],
-                   
-    'status':      [0,   0,   0,   0,   0,   0,   
-                    1,   1,   1,   1,   1,   1] 
+    'jeda_waktu': [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0, 6.0],
+    'status':      [0,   0,   0,   0,   0,   1,   1,   1,   1,   1] 
 }
 
 df = pd.DataFrame(data)
-
-# 2. LATIH MODEL AI (Supervised Learning)
 X = df[['jeda_waktu']] 
 y = df['status']       
 
-# Menggunakan Decision Tree
 model = DecisionTreeClassifier()
 model.fit(X, y)
 
-print("AI berhasil dilatih!")
+print("AI berhasil dilatih ulang dengan data baru!")
 
-# 3. SIMPAN MODEL
 with open('model_fatigue.pkl', 'wb') as file:
     pickle.dump(model, file)
     

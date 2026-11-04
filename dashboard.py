@@ -28,6 +28,7 @@ def on_message(client, userdata, msg):
     
     reps = data["reps"]
     jeda = data.get("jeda_waktu", 0)
+    print(f"DEBUG: Rep-{reps} | Jeda Terbaca: {jeda:.3f} detik")
     status = "NORMAL"
     
     # LAPTOP MELAKUKAN PREDIKSI AI
