@@ -31,8 +31,8 @@ def main():
     print("HP 1 Mode Streaming. Mulai membaca sensor...")
     
     process = subprocess.Popen(
-        ["termux-sensor", "-s", "accelerometer", "-n", "100000"],
-        stdout=subprocess.PIPE, text=True
+        ["termux-sensor", "-s", "accelerometer", "-d", "20", "-n", "100000"],
+        stdout=subprocess.PIPE, text=True, bufsize=1
     )
     
     try:
@@ -50,36 +50,23 @@ def main():
                         ax, ay, az = data[accel_key]["values"][:3]
                         magnitude = math.sqrt(ax**2 + ay**2 + az**2)
                         
-                        if len(buffer_magnitude) < 15:
+                        # --- LANGKAH 2: KALIBRASI 50 DATA ---
+                        if len(buffer_magnitude) < 50:
                             buffer_magnitude.append(magnitude)
-                            if len(buffer_magnitude) == 15:
-                                rata_diam = sum(buffer_magnitude) / 15
+                            if len(buffer_magnitude) == 50:
+                                rata_diam = sum(buffer_magnitude) / 50
                                 dynamic_threshold = rata_diam + 1.5 
                                 print(f"Kalibrasi selesai. Batas: {dynamic_threshold:.2f}")
                                 last_rep_time = time.time() 
                             continue
                         
-                        if magnitude > dynamic_threshold and not is_peak:
+                        # --- LANGKAH 3 & 4: DETEKSI REPETISI & JEDA ---
+                        if magnitude > dynamic_threshold and not is_peak and (time.time() - last_rep_time) > 0.5:
                             is_peak = True
                             rep_count += 1
                             
-                            # --- TRIK WAKTU (ANTI TERSENDAT) ---
-                            # Kita paksa jeda maksimal 2.5 detik agar tidak kacau
                             current_time = time.time()
                             time_diff = current_time - last_rep_time
-                            
-                            # Jika HP tersendat dan jeda > 2.5 detik, kita paksa anggap 1.0 detik
-                            # (Asumsi: orang gerak cepat jedanya ~1 detik)
-                            current_time = time.time()
-                            time_diff = current_time - last_rep_time
-                            
-                            # (Baris paksa tadi sudah dihapus)
-                            
-                            last_rep_time = current_time
-                            
-                            print(f"Rep-{rep_count} | Jeda Akurat: {time_diff:.2f}s")
-                             
-                            
                             last_rep_time = current_time
                             
                             print(f"Rep-{rep_count} | Jeda Akurat: {time_diff:.2f}s")
@@ -97,7 +84,7 @@ def main():
                             
                 except json.JSONDecodeError:
                     pass 
-                    
+                
     except KeyboardInterrupt:
         print("Program dihentikan.")
         process.terminate()
